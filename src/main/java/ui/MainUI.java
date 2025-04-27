@@ -24,7 +24,7 @@ public class MainUI {
     private final IDataProvider dataProvider;
     private static final String APP_NAME = "F1 Viewer";
     private static final String APP_VERSION = "v0.3";
-    private static final TerminalSize INITIAL_SIZE = new TerminalSize(75, 40);
+    private static final TerminalSize INITIAL_SIZE = new TerminalSize(90, 40);
 
     public MainUI(IDataProvider dataProvider) {
         this.dataProvider = dataProvider;

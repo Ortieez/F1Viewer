@@ -73,20 +73,11 @@ public class SeasonStandingsScreen implements UIScreen {
 
         List<DriverChampionshipStanding> standings = getDriverStandings();
 
+        System.out.println(standings);
+
         int totalRows = standings.size();
         int visibleRows = Math.min(availableHeight, totalRows);
         int scrollOffset = 0;
-
-        if (standings.size() < 20) {
-            for (int i = standings.size() + 1; i <= 20; i++) {
-                DriverChampionshipStanding standing = new DriverChampionshipStanding();
-                standing.setDriverId(i);
-                standing.setPosition(i);
-                standing.setPoints(100 - (i * 5) + (Math.random() * 10 - 5));
-                standing.setWins(0);
-                standings.add(standing);
-            }
-        }
 
         textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
         for (int i = 0; i < visibleRows; i++) {

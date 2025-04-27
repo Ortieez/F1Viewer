@@ -5,6 +5,7 @@ public class DriverChampionshipStanding {
     private int position;
     private double points;
     private int wins;
+    private Driver driver;
 
     public DriverChampionshipStanding() {
     }
@@ -39,6 +40,14 @@ public class DriverChampionshipStanding {
 
     public void setWins(int wins) {
         this.wins = wins;
+    }
+
+    public Driver getDriver() {
+        return driver;
+    }
+
+    public void setDriver(Driver driver) {
+        this.driver = driver;
     }
 
     @Override

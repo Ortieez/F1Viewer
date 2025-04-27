@@ -27,5 +27,7 @@ public interface IDataProvider {
 
     List<TeamChampionshipStanding> getTeamChampionshipStandings(int year, int round);
 
+    List<Session> getSessionsForRound(int roundId);
+
     void loadFromCsv(DataFileNames fileName);
 }

@@ -6,17 +6,15 @@ import utils.DataFileNames;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import utils.SessionType;
+import utils.Utilities;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CsvProviderController implements IDataProvider {
@@ -29,6 +27,8 @@ public class CsvProviderController implements IDataProvider {
     private List<Team> teams;
     private List<Round> rounds;
     private List<Circuit> circuits;
+    private List<Session> sessions;
+    private final Map<Integer, List<Session>> sessionsByRoundCache;
     private final Map<Integer, Map<Integer, List<DriverChampionshipStanding>>> driverStandingsCache;
     private final Map<Integer, Map<Integer, List<TeamChampionshipStanding>>> teamStandingsCache;
 
@@ -36,6 +36,7 @@ public class CsvProviderController implements IDataProvider {
         this.csvPath = new ConfigController().readDataFolder();
         this.driverStandingsCache = new HashMap<>();
         this.teamStandingsCache = new HashMap<>();
+        this.sessionsByRoundCache = new HashMap<>();
     }
 
     @Override
@@ -136,6 +137,7 @@ public class CsvProviderController implements IDataProvider {
 
         List<TeamChampionshipStanding> standings = loadTeamChampionshipStandings(year, round);
 
+
         if (!teamStandingsCache.containsKey(year)) {
             teamStandingsCache.put(year, new HashMap<>());
         }
@@ -151,6 +153,24 @@ public class CsvProviderController implements IDataProvider {
         } catch (IOException e) {
             System.err.println("Failed to load " + fileName + ": " + e.getMessage());
         }
+    }
+
+    @Override
+    public List<Session> getSessionsForRound(int roundId) {
+        if (sessionsByRoundCache.containsKey(roundId)) {
+            return sessionsByRoundCache.get(roundId);
+        }
+
+        if (sessions == null) {
+            loadSessions();
+        }
+
+        List<Session> roundSessions = sessions.stream()
+                .filter(session -> session.getRoundId() == roundId)
+                .collect(Collectors.toList());
+
+        sessionsByRoundCache.put(roundId, roundSessions);
+        return roundSessions;
     }
 
     private List<CSVRecord> getDataFromCsv(DataFileNames fileName) throws IOException {
@@ -222,6 +242,8 @@ public class CsvProviderController implements IDataProvider {
             for (CSVRecord record : records) {
                 rounds.add(convertToRound(record));
             }
+
+            rounds.sort(Comparator.comparing(Round::getId));
         } catch (IOException e) {
             System.err.println("Failed to load rounds: " + e.getMessage());
         }
@@ -247,6 +269,27 @@ public class CsvProviderController implements IDataProvider {
                 .filter(circuit -> circuit.getId() == circuitId)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private void loadSessions() {
+        sessions = new ArrayList<>();
+        try {
+            List<CSVRecord> records = getDataFromCsv(DataFileNames.SESSIONS);
+            for (CSVRecord record : records) {
+                sessions.add(convertToSession(record));
+            }
+
+            sessions.sort((s1, s2) -> {
+                int dateComparison = Utilities.compareNullableStrings(s1.getDate(), s2.getDate());
+                if (dateComparison != 0) {
+                    return dateComparison;
+                }
+
+                return Utilities.compareNullableStrings(s1.getTime(), s2.getTime());
+            });
+        } catch (IOException e) {
+            System.err.println("Failed to load sessions: " + e.getMessage());
+        }
     }
 
     private List<DriverChampionshipStanding> loadDriverChampionshipStandings(int year, int round) {
@@ -340,6 +383,8 @@ public class CsvProviderController implements IDataProvider {
         DriverChampionshipStanding standing = new DriverChampionshipStanding();
         standing.setDriverId(Integer.parseInt(record.get("driver_id")));
 
+        standing.setDriver(getDriverById(standing.getDriverId()).orElse(null));
+
         String positionStr = record.get("position");
         if (positionStr != null && !positionStr.isEmpty()) {
             standing.setPosition((int)Float.parseFloat(positionStr));
@@ -366,5 +411,35 @@ public class CsvProviderController implements IDataProvider {
         standing.setPoints(Double.parseDouble(record.get("points")));
         standing.setWins(Integer.parseInt(record.get("win_count")));
         return standing;
+    }
+
+    private Session convertToSession(CSVRecord record) {
+        Session session = new Session();
+        session.setId(Integer.parseInt(record.get("id")));
+
+        String numberStr = record.get("number");
+        if (numberStr != null && !numberStr.isEmpty()) {
+            session.setNumber(Integer.parseInt(numberStr));
+        }
+
+        session.setType(SessionType.fromCode(record.get("type")));
+        session.setDate(record.get("date"));
+        session.setTime(record.get("time"));
+
+        String lapsStr = record.get("scheduled_laps");
+        if (lapsStr != null && !lapsStr.isEmpty()) {
+            session.setScheduledLaps(Integer.parseInt(lapsStr));
+        }
+
+        String cancelledStr = record.get("is_cancelled");
+        session.setCancelled(cancelledStr != null && cancelledStr.equalsIgnoreCase("1"));
+
+        String pointSystemStr = record.get("point_system_id");
+        if (pointSystemStr != null && !pointSystemStr.isEmpty()) {
+            session.setPointSystemId(Integer.parseInt(pointSystemStr));
+        }
+
+        session.setRoundId(Integer.parseInt(record.get("round_id")));
+        return session;
     }
 }
